@@ -1,0 +1,10 @@
+venv/
+__pycache__/
+*.pyc
+.env
+data/
+*.onnx
+.setup_complete
+dist/
+build/
+*.spec
