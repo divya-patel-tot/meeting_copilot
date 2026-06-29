@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum, auto
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 import sounddevice as sd
@@ -14,6 +15,10 @@ import soundfile as sf
 
 from app.core.audio.vad import SileroVAD
 from app.utils.paths import DEBUG_SEGMENTS_DIR
+
+SourceMode = Literal["microphone", "loopback"]
+SOURCE_MICROPHONE: SourceMode = "microphone"
+SOURCE_LOOPBACK: SourceMode = "loopback"
 
 
 @dataclass(frozen=True)
@@ -64,24 +69,70 @@ class ContinuousListener:
     VAD_CHUNK_SIZE = SileroVAD.CHUNK_SIZE
     VAD_SAMPLE_RATE = SileroVAD.SAMPLE_RATE
 
-    def __init__(self, device_index: int) -> None:
+    def __init__(
+        self,
+        device_index: int,
+        *,
+        source_mode: SourceMode = SOURCE_MICROPHONE,
+    ) -> None:
         self.device_index = device_index
+        self.source_mode = source_mode
         self.chunk_queue: queue.Queue[np.ndarray] = queue.Queue()
-        self._stream: sd.InputStream | None = None
+        self._stream: sd.InputStream | object | None = None
+        self._pyaudio = None
         self._native_buffer = np.array([], dtype=np.float32)
+        self._use_pyaudio = source_mode == SOURCE_LOOPBACK
 
-        device_info = sd.query_devices(device_index)
+        if source_mode == SOURCE_MICROPHONE:
+            self._init_microphone(device_index)
+        elif source_mode == SOURCE_LOOPBACK:
+            self._init_loopback(device_index)
+        else:
+            raise ValueError(f"Unknown source_mode: {source_mode!r}")
+
+    def _init_microphone(self, device_index: int) -> None:
         self._channels = 1
+        device_info = sd.query_devices(device_index)
         self.native_rate = self._pick_native_rate(device_index, device_info)
         self._native_blocksize = int(
             round(self.VAD_CHUNK_SIZE * self.native_rate / self.VAD_SAMPLE_RATE)
         )
-
         sd.check_input_settings(
             device=device_index,
             channels=self._channels,
             samplerate=self.native_rate,
         )
+
+    def _init_loopback(self, loopback_index: int) -> None:
+        if sys.platform != "win32":
+            raise RuntimeError("Loopback capture is only supported on Windows")
+
+        import pyaudiowpatch as pyaudio
+
+        self._pyaudio_module = pyaudio
+        pa = pyaudio.PyAudio()
+        try:
+            info = pa.get_device_info_by_index(loopback_index)
+            if not info.get("isLoopbackDevice"):
+                raise ValueError(
+                    f"Device index {loopback_index} is not a WASAPI loopback device"
+                )
+            self._loopback_index = loopback_index
+            self._channels = max(1, int(info["maxInputChannels"]))
+            self.native_rate = self._pick_loopback_rate(info)
+            self._native_blocksize = int(
+                round(self.VAD_CHUNK_SIZE * self.native_rate / self.VAD_SAMPLE_RATE)
+            )
+        finally:
+            pa.terminate()
+
+    @staticmethod
+    def _pick_loopback_rate(device_info: dict) -> int:
+        default_rate = int(device_info["defaultSampleRate"])
+        for rate in (48000, default_rate, 44100):
+            if rate > 0:
+                return rate
+        return default_rate
 
     @staticmethod
     def _pick_native_rate(device_index: int, device_info: dict) -> int:
@@ -101,6 +152,15 @@ class ContinuousListener:
                 continue
         return default_rate
 
+    def _ingest_mono_block(self, mono: np.ndarray) -> None:
+        self._native_buffer = np.concatenate([self._native_buffer, mono])
+
+        while len(self._native_buffer) >= self._native_blocksize:
+            native_chunk = self._native_buffer[: self._native_blocksize]
+            self._native_buffer = self._native_buffer[self._native_blocksize :]
+            vad_chunk = _resample_to_16k(native_chunk, self.native_rate)
+            self.chunk_queue.put(vad_chunk)
+
     def _callback(
         self,
         indata: np.ndarray,
@@ -111,18 +171,23 @@ class ContinuousListener:
         if status:
             print(f"Audio stream status: {status}", file=sys.stderr)
 
-        mono = indata[:, 0].astype(np.float32)
-        self._native_buffer = np.concatenate([self._native_buffer, mono])
-
-        while len(self._native_buffer) >= self._native_blocksize:
-            native_chunk = self._native_buffer[: self._native_blocksize]
-            self._native_buffer = self._native_buffer[self._native_blocksize :]
-            vad_chunk = _resample_to_16k(native_chunk, self.native_rate)
-            self.chunk_queue.put(vad_chunk)
+        if indata.ndim == 1:
+            mono = indata.astype(np.float32)
+        elif indata.shape[1] > 1:
+            mono = indata.mean(axis=1).astype(np.float32)
+        else:
+            mono = indata[:, 0].astype(np.float32)
+        self._ingest_mono_block(mono)
 
     def start(self) -> None:
         if self._stream is not None:
             return
+        if self._use_pyaudio:
+            self._start_loopback_stream()
+        else:
+            self._start_microphone_stream()
+
+    def _start_microphone_stream(self) -> None:
         try:
             self._stream = sd.InputStream(
                 device=self.device_index,
@@ -140,21 +205,71 @@ class ContinuousListener:
             ) from exc
 
         print(
-            f"Capture: {self.native_rate} Hz -> VAD: {self.VAD_SAMPLE_RATE} Hz "
-            f"({self.VAD_CHUNK_SIZE}-sample chunks)"
+            f"Capture ({self.source_mode}): {self.native_rate} Hz -> "
+            f"VAD: {self.VAD_SAMPLE_RATE} Hz ({self.VAD_CHUNK_SIZE}-sample chunks)"
+        )
+
+    def _start_loopback_stream(self) -> None:
+        pyaudio = self._pyaudio_module
+        self._pyaudio = pyaudio.PyAudio()
+
+        def pyaudio_callback(in_data, frame_count, time_info, status):  # noqa: ANN001
+            if status:
+                print(f"Loopback stream status: {status}", file=sys.stderr)
+            samples = np.frombuffer(in_data, dtype=np.float32)
+            if self._channels > 1:
+                samples = samples.reshape(-1, self._channels)
+                mono = samples.mean(axis=1)
+            else:
+                mono = samples
+            self._ingest_mono_block(mono.astype(np.float32))
+            return (None, pyaudio.paContinue)
+
+        try:
+            self._stream = self._pyaudio.open(
+                format=pyaudio.paFloat32,
+                channels=self._channels,
+                rate=self.native_rate,
+                input=True,
+                input_device_index=self._loopback_index,
+                frames_per_buffer=self._native_blocksize,
+                stream_callback=pyaudio_callback,
+            )
+            self._stream.start_stream()
+        except Exception as exc:
+            self._pyaudio.terminate()
+            self._pyaudio = None
+            raise RuntimeError(
+                f"Could not open loopback device {self._loopback_index}: {exc}"
+            ) from exc
+
+        print(
+            f"Capture ({self.source_mode}): {self.native_rate} Hz -> "
+            f"VAD: {self.VAD_SAMPLE_RATE} Hz ({self.VAD_CHUNK_SIZE}-sample chunks)"
         )
 
     def stop(self) -> None:
         if self._stream is None:
             return
-        self._stream.stop()
-        self._stream.close()
+        if self._use_pyaudio:
+            self._stream.stop_stream()
+            self._stream.close()
+            if self._pyaudio is not None:
+                self._pyaudio.terminate()
+                self._pyaudio = None
+        else:
+            self._stream.stop()
+            self._stream.close()
         self._stream = None
         self._native_buffer = np.array([], dtype=np.float32)
 
     @property
     def is_running(self) -> bool:
-        return self._stream is not None and self._stream.active
+        if self._stream is None:
+            return False
+        if self._use_pyaudio:
+            return self._stream.is_active()
+        return self._stream.active
 
 
 class SpeechSegmenter:

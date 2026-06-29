@@ -12,7 +12,12 @@ import soundfile as sf
 
 from app.core.audio.vad import SileroVAD
 from app.core.stt.groq_stt import transcribe_audio_bytes_timed
-from app.core.stt.transcript_buffer import TranscriptBuffer, TranscriptEntry
+from app.core.stt.transcript_buffer import (
+    SPEAKER_THEM,
+    Speaker,
+    TranscriptBuffer,
+    TranscriptEntry,
+)
 from app.core.stt.transcript_quality import is_meaningful_transcript
 
 OnResultCallback = Callable[[TranscriptEntry], None]
@@ -31,7 +36,7 @@ class TranscriptionWorker:
         buffer: TranscriptBuffer,
         on_result: OnResultCallback,
         *,
-        max_workers: int = 2,
+        max_workers: int = 4,
     ) -> None:
         self._buffer = buffer
         self._on_result = on_result
@@ -45,6 +50,7 @@ class TranscriptionWorker:
         segment_closed_time: float,
         audio_duration_seconds: float,
         *,
+        speaker: Speaker = SPEAKER_THEM,
         samplerate: int = SileroVAD.SAMPLE_RATE,
     ) -> None:
         self._executor.submit(
@@ -54,6 +60,7 @@ class TranscriptionWorker:
             Path(wav_path),
             segment_closed_time,
             audio_duration_seconds,
+            speaker,
             samplerate,
         )
 
@@ -64,6 +71,7 @@ class TranscriptionWorker:
         wav_path: Path,
         segment_closed_time: float,
         audio_duration_seconds: float,
+        speaker: Speaker,
         samplerate: int,
     ) -> None:
         closed_at = datetime.fromtimestamp(segment_closed_time)
@@ -87,6 +95,7 @@ class TranscriptionWorker:
                 encode_seconds=result.encode_seconds,
                 api_seconds=result.api_seconds,
                 is_valid=is_valid,
+                speaker=speaker,
             )
         except Exception as exc:
             entry = TranscriptEntry(
@@ -96,6 +105,7 @@ class TranscriptionWorker:
                 text="",
                 latency_seconds=time.time() - segment_closed_time,
                 is_valid=False,
+                speaker=speaker,
                 error=str(exc),
             )
 

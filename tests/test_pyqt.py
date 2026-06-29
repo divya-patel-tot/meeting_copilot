@@ -8,10 +8,12 @@ def run() -> tuple[bool, str]:
     try:
         from PyQt6.QtWidgets import QApplication
 
+        from app.core.pipeline_controller import PipelineController
         from app.ui.main_window import MainWindow
 
         app = QApplication.instance() or QApplication([])
-        window = MainWindow()
+        controller = PipelineController()
+        window = MainWindow(controller)
         if window.windowTitle() != "Meeting Responder":
             return False, f"Unexpected window title: {window.windowTitle()!r}"
         app.quit()

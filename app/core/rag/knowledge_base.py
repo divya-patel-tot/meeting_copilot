@@ -92,3 +92,7 @@ class KnowledgeBase:
 
     def clear(self) -> None:
         self._store.clear()
+
+    def remove_source(self, source: str) -> int:
+        """Remove all chunks for the given source filename."""
+        return self._store.delete_by_source(source)

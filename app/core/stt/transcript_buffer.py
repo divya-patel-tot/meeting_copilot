@@ -3,6 +3,11 @@ from __future__ import annotations
 import threading
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Literal
+
+Speaker = Literal["you", "them"]
+SPEAKER_YOU: Speaker = "you"
+SPEAKER_THEM: Speaker = "them"
 
 
 @dataclass
@@ -13,6 +18,7 @@ class TranscriptEntry:
     text: str
     latency_seconds: float
     is_valid: bool
+    speaker: Speaker = SPEAKER_THEM
     encode_seconds: float = 0.0
     api_seconds: float = 0.0
     error: str | None = None
@@ -30,8 +36,10 @@ class TranscriptBuffer:
             self._entries.append(entry)
 
     def get_recent(self, n: int = 6) -> list[TranscriptEntry]:
+        """Return the *n* most recent entries in spoken order (by segment timestamp)."""
         with self._lock:
-            return list(self._entries[-n:])
+            ordered = sorted(self._entries, key=lambda entry: entry.timestamp)
+            return ordered[-n:]
 
     def get_all(self) -> list[TranscriptEntry]:
         with self._lock:

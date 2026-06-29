@@ -1,5 +1,5 @@
 PyQt6==6.7.1
-sounddevice==0.4.6
+sounddevice==0.5.5
 soundfile==0.12.1
 numpy==1.26.4
 onnxruntime==1.18.1
@@ -13,5 +13,9 @@ websockets==12.0
 python-dotenv==1.0.1
 pydantic==2.8.2
 pydantic-settings==2.3.4
+langgraph>=0.2.60
+langchain-core>=0.3.0
 tqdm==4.66.4
 requests==2.32.3
+pycaw; sys_platform == "win32"
+pyaudiowpatch; sys_platform == "win32"
