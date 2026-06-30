@@ -1,7 +1,7 @@
 from PyQt6.QtCore import QSettings
 
-ORGANIZATION = "MeetingResponder"
-APPLICATION = "MeetingCopilot"
+ORGANIZATION = "CuePilotAI"
+APPLICATION = "CuePilot"
 
 SOURCE_LOOPBACK = "loopback"
 SOURCE_MICROPHONE = "microphone"

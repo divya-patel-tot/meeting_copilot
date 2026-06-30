@@ -20,6 +20,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from app.ui.branding import APP_NAME
+from app.ui.icon_loader import app_icon
 from app.core.audio.device_manager import format_input_device, list_input_devices
 from app.core.pipeline_controller import PipelineController
 from app.ui.setup_wizard import _ApiKeyWorker
@@ -54,7 +56,8 @@ class SettingsDialog(QDialog):
         self._ingest_worker: _IngestWorker | None = None
         self._device_saved_index: int | None = get_audio_device_index()
 
-        self.setWindowTitle("Settings")
+        self.setWindowTitle(f"{APP_NAME} — Settings")
+        self.setWindowIcon(app_icon())
         self.setMinimumWidth(560)
 
         root = QVBoxLayout(self)

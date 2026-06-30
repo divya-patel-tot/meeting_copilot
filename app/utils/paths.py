@@ -1,3 +1,4 @@
+import os
 import sys
 from pathlib import Path
 
@@ -17,8 +18,10 @@ else:
 DATA_DIR = BASE_DIR / "data"
 KB_DIR = DATA_DIR / "knowledge_base"
 DEBUG_SEGMENTS_DIR = DATA_DIR / "debug_segments"
+FASTEMBED_CACHE_DIR = DATA_DIR / "fastembed_cache"
 SETUP_MARKER_PATH = DATA_DIR / ".setup_complete"
 ENV_PATH = BASE_DIR / ".env"
+SMOKE_TEST_LOG_PATH = BASE_DIR / "smoke_test.log"
 
 
 def resource_path(*parts: str) -> Path:
@@ -39,3 +42,6 @@ if not _is_frozen():
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
 KB_DIR.mkdir(parents=True, exist_ok=True)
 DEBUG_SEGMENTS_DIR.mkdir(parents=True, exist_ok=True)
+
+os.environ.setdefault("FASTEMBED_CACHE_PATH", str(FASTEMBED_CACHE_DIR))
+FASTEMBED_CACHE_DIR.mkdir(parents=True, exist_ok=True)

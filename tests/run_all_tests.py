@@ -4,6 +4,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tests import test_audio_devices
+from tests import test_config
 from tests import test_doc_parsing
 from tests import test_embeddings
 from tests import test_groq_llm
@@ -14,6 +15,7 @@ from tests import test_vectorstore
 
 TESTS = [
     ("pyqt", test_pyqt),
+    ("config", test_config),
     ("audio_devices", test_audio_devices),
     ("doc_parsing", test_doc_parsing),
     ("embeddings", test_embeddings),

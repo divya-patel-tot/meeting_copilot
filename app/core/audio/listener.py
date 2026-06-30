@@ -82,6 +82,7 @@ class ContinuousListener:
         self._pyaudio = None
         self._native_buffer = np.array([], dtype=np.float32)
         self._use_pyaudio = source_mode == SOURCE_LOOPBACK
+        self._stream_failed = False
 
         if source_mode == SOURCE_MICROPHONE:
             self._init_microphone(device_index)
@@ -170,6 +171,7 @@ class ContinuousListener:
     ) -> None:
         if status:
             print(f"Audio stream status: {status}", file=sys.stderr)
+            self._stream_failed = True
 
         if indata.ndim == 1:
             mono = indata.astype(np.float32)
@@ -216,6 +218,7 @@ class ContinuousListener:
         def pyaudio_callback(in_data, frame_count, time_info, status):  # noqa: ANN001
             if status:
                 print(f"Loopback stream status: {status}", file=sys.stderr)
+                self._stream_failed = True
             samples = np.frombuffer(in_data, dtype=np.float32)
             if self._channels > 1:
                 samples = samples.reshape(-1, self._channels)
@@ -262,9 +265,12 @@ class ContinuousListener:
             self._stream.close()
         self._stream = None
         self._native_buffer = np.array([], dtype=np.float32)
+        self._stream_failed = False
 
     @property
     def is_running(self) -> bool:
+        if self._stream_failed:
+            return False
         if self._stream is None:
             return False
         if self._use_pyaudio:

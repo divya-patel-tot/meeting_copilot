@@ -4,19 +4,24 @@ from app.utils.std_streams import ensure_std_streams
 
 ensure_std_streams()
 
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import QApplication, QDialog, QSystemTrayIcon
 
 from app.core.pipeline_controller import PipelineController
+from app.ui.branding import APP_NAME, APP_USER_MODEL_ID, ORGANIZATION
+from app.ui.icon_loader import app_icon
 from app.ui.main_window import MainWindow
 from app.ui.setup_wizard import SetupWizard
 from app.ui.system_tray import SystemTray
 from app.utils.config import reload_settings
 from app.utils.paths import resource_path
 from app.utils.setup import is_setup_complete
+from app.utils.win_taskbar import apply_windows_app_user_model_id
 
 
 def _load_stylesheet() -> str:
-    qss_path = resource_path("app", "ui", "styles", "dark_theme.qss")
+    qss_path = resource_path("app", "ui", "styles", "light_theme.qss")
     if qss_path.exists():
         return qss_path.read_text(encoding="utf-8")
     return ""
@@ -27,8 +32,21 @@ def main() -> int:
         from app.utils.frozen_smoke_test import run_smoke_test
 
         return run_smoke_test()
+
+    apply_windows_app_user_model_id(APP_USER_MODEL_ID)
+
+    QApplication.setHighDpiScaleFactorRoundingPolicy(
+        Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
+    )
     app = QApplication(sys.argv)
-    app.setApplicationName("Meeting Responder")
+    icon = app_icon()
+    app.setApplicationName(APP_NAME)
+    app.setOrganizationName(ORGANIZATION)
+    app.setApplicationDisplayName(APP_NAME)
+    app.setWindowIcon(icon)
+
+    font = QFont("Segoe UI", 10)
+    app.setFont(font)
 
     stylesheet = _load_stylesheet()
     if stylesheet:
@@ -36,12 +54,14 @@ def main() -> int:
 
     if not is_setup_complete():
         wizard = SetupWizard()
+        wizard.setWindowIcon(icon)
         if wizard.exec() != QDialog.DialogCode.Accepted:
             return 0
         reload_settings()
 
     controller = PipelineController()
     window = MainWindow(controller)
+    window.setWindowIcon(icon)
 
     if QSystemTrayIcon.isSystemTrayAvailable():
         tray = SystemTray(window)

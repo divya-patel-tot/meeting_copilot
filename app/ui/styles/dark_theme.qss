@@ -258,7 +258,8 @@ QSplitter#mainSplitter::handle:hover {
     background-color: rgba(74, 144, 217, 0.45);
 }
 
-QTextEdit#transcriptPanel {
+QTextEdit#transcriptPanel,
+QTextBrowser#transcriptPanel {
     background-color: rgba(20, 24, 32, 0.55);
     border: none;
     border-radius: 8px;
@@ -267,6 +268,10 @@ QTextEdit#transcriptPanel {
     font-size: 14px;
     line-height: 1.45;
     selection-background-color: rgba(74, 144, 217, 0.35);
+}
+
+QTextBrowser#transcriptPanel::hover {
+    border: none;
 }
 
 QTextEdit#suggestionPanel {

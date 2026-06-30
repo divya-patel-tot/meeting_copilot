@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from PyQt6.QtGui import QAction
-from PyQt6.QtWidgets import QApplication, QMenu, QStyle, QSystemTrayIcon
+from PyQt6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
+from app.ui.branding import APP_NAME
+from app.ui.icon_loader import app_icon
 from app.ui.main_window import MainWindow
 
 
@@ -13,9 +15,8 @@ class SystemTray(QSystemTrayIcon):
         super().__init__(main_window)
         self._window = main_window
 
-        icon = QApplication.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
-        self.setIcon(icon)
-        self.setToolTip("Meeting Responder")
+        self.setIcon(app_icon())
+        self.setToolTip(APP_NAME)
 
         self._menu = QMenu()
         self._show_hide_action = QAction("Hide Window", self)

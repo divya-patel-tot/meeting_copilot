@@ -1,0 +1,10 @@
+"""CuePilot AI — application branding constants."""
+
+APP_NAME = "CuePilot AI"
+APP_NAME_SHORT = "CuePilot"
+ORGANIZATION = "CuePilotAI"
+APPLICATION = "CuePilot"
+EXE_NAME = "CuePilotAI.exe"
+INSTALL_DIR_NAME = "CuePilot AI"
+SETUP_EXE_NAME = "CuePilotAISetup.exe"
+APP_USER_MODEL_ID = "CuePilotAI.CuePilot.1"

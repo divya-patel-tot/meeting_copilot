@@ -27,7 +27,7 @@ class GlassPanel(QWidget):
         layout.setContentsMargins(14, 12, 14, 14)
         layout.setSpacing(10)
 
-        heading = QLabel(title.upper())
+        heading = QLabel(title)
         heading.setObjectName("panelHeading")
         layout.addWidget(heading)
 

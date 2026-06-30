@@ -1,4 +1,4 @@
-"""Default Windows playback device metadata via pycaw."""
+"""Default Windows playback/capture device metadata via pycaw."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ _FORM_FACTOR_NAMES: dict[int, str] = {
 _DEVPKEY_FORM_FACTOR = "{B3F8FA53-0004-438E-9003-51A46E139BFC} 0"
 
 
-def _unknown_output() -> dict[str, str | bool]:
+def _unknown_endpoint() -> dict[str, str | bool]:
     return {"name": "Unknown", "form_factor": "Unknown", "is_default": True}
 
 
@@ -47,20 +47,19 @@ def format_output_display(name: str, form_factor: str) -> str:
     return f"{form_factor} ({name})" if form_factor != "Unknown" else name
 
 
-def get_default_output_device_info() -> dict[str, str | bool]:
-    """Return default playback device metadata.
-
-    On non-Windows platforms returns a safe placeholder dict.
-    """
+def _pycaw_default_endpoint(getter_name: str) -> dict[str, str | bool]:
     if sys.platform != "win32":
-        return _unknown_output()
+        return _unknown_endpoint()
 
     try:
         from pycaw.pycaw import AudioUtilities
 
-        device = AudioUtilities.GetSpeakers()
+        getter = getattr(AudioUtilities, getter_name, None)
+        if getter is None:
+            return _unknown_endpoint()
+        device = getter()
         if device is None:
-            return _unknown_output()
+            return _unknown_endpoint()
 
         name = device.FriendlyName or "Unknown"
         form_factor = _form_factor_from_properties(device.properties)
@@ -70,4 +69,14 @@ def get_default_output_device_info() -> dict[str, str | bool]:
             "is_default": True,
         }
     except Exception:
-        return _unknown_output()
+        return _unknown_endpoint()
+
+
+def get_default_output_device_info() -> dict[str, str | bool]:
+    """Return default playback device metadata from Windows."""
+    return _pycaw_default_endpoint("GetSpeakers")
+
+
+def get_default_input_device_info() -> dict[str, str | bool]:
+    """Return default recording device metadata from Windows."""
+    return _pycaw_default_endpoint("GetMicrophone")

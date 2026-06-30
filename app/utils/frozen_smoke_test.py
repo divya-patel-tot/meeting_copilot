@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 import traceback
 
-from app.utils.paths import BASE_DIR, MODELS_DIR, SILERO_VAD_FILENAME, resource_path
+from app.utils.paths import BASE_DIR, MODELS_DIR, SILERO_VAD_FILENAME, SMOKE_TEST_LOG_PATH, resource_path
 
 _THRESHOLD = 0.55
 _CASES = (
@@ -50,7 +50,7 @@ def run_smoke_test() -> int:
     else:
         _log(lines, f"OK: bundled VAD found ({vad_path.stat().st_size} bytes)")
 
-    qss_path = resource_path("app", "ui", "styles", "dark_theme.qss")
+    qss_path = resource_path("app", "ui", "styles", "light_theme.qss")
     if qss_path.exists():
         _log(lines, f"OK: stylesheet found at {qss_path}")
     else:
@@ -124,7 +124,7 @@ def run_smoke_test() -> int:
     summary = "PASS" if failures == 0 else f"FAIL ({failures} checks)"
     _log(lines, f"SUMMARY: {summary}")
 
-    log_path = BASE_DIR / "smoke_test.log"
+    log_path = SMOKE_TEST_LOG_PATH
     log_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     _log(lines, f"log written to {log_path}")
 

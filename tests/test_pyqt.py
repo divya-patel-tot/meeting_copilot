@@ -9,12 +9,13 @@ def run() -> tuple[bool, str]:
         from PyQt6.QtWidgets import QApplication
 
         from app.core.pipeline_controller import PipelineController
+        from app.ui.branding import APP_NAME
         from app.ui.main_window import MainWindow
 
         app = QApplication.instance() or QApplication([])
         controller = PipelineController()
         window = MainWindow(controller)
-        if window.windowTitle() != "Meeting Responder":
+        if window.windowTitle() != APP_NAME:
             return False, f"Unexpected window title: {window.windowTitle()!r}"
         app.quit()
         return True, "MainWindow created successfully"

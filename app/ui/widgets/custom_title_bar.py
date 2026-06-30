@@ -4,28 +4,33 @@ from PyQt6.QtCore import Qt, QPoint
 from PyQt6.QtGui import QMouseEvent
 from PyQt6.QtWidgets import QHBoxLayout, QLabel, QMainWindow, QPushButton, QWidget
 
+from app.ui.branding import APP_NAME
+from app.ui.icon_loader import app_logo_pixmap
+
 
 class CustomTitleBar(QWidget):
-    """Frameless window title bar with drag-to-move and window controls."""
+    """Frameless window title bar with logo, drag-to-move, and window controls."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("customTitleBar")
-        self.setFixedHeight(44)
+        self.setFixedHeight(40)
         self._drag_origin: QPoint | None = None
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(16, 0, 8, 0)
-        layout.setSpacing(10)
+        layout.setContentsMargins(14, 0, 8, 0)
+        layout.setSpacing(8)
 
-        self._app_dot = QWidget()
-        self._app_dot.setObjectName("appIconDot")
-        self._app_dot.setFixedSize(10, 10)
+        logo = QLabel()
+        logo.setObjectName("titleBarLogo")
+        logo.setFixedSize(22, 22)
+        pixmap = app_logo_pixmap(22)
+        if not pixmap.isNull():
+            logo.setPixmap(pixmap)
+        layout.addWidget(logo)
 
-        title = QLabel("Meeting Responder")
+        title = QLabel(APP_NAME)
         title.setObjectName("titleBarLabel")
-
-        layout.addWidget(self._app_dot)
         layout.addWidget(title)
         layout.addStretch()
 

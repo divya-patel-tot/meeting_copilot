@@ -45,6 +45,7 @@ class PipelineController(QObject):
     status_changed = pyqtSignal(str)
     transcript_ready = pyqtSignal(object)  # TranscriptEntry
     suggestion_started = pyqtSignal(int, str)  # segment_index, transcript_text
+    suggestion_retrieval = pyqtSignal(int, object)  # segment_index, list[dict]
     retrieval_debug = pyqtSignal(int, list)  # segment_index, [(score, source, passed)]
     suggestion_token = pyqtSignal(int, str)  # segment_index, delta
     suggestion_complete = pyqtSignal(int, str, dict)  # segment_index, full_text, stats
@@ -114,6 +115,27 @@ class PipelineController(QObject):
             thread.join(timeout=timeout)
         if thread is not None and thread.is_alive():
             self._force_shutdown()
+
+    def reload_audio_devices(
+        self,
+        mic_device_index: int,
+        loopback_device_index: int | None,
+        *,
+        mic_only_testing: bool = False,
+    ) -> None:
+        """Hot-swap capture endpoints by restarting the active session."""
+        with self._lock:
+            if not self._listening:
+                return
+        self.stop_listening(wait=True, timeout=3.0)
+        with self._lock:
+            if self._listening:
+                return
+        self.start_listening(
+            mic_device_index,
+            loopback_device_index,
+            mic_only_testing=mic_only_testing,
+        )
 
     def _run_capture_session(
         self,
@@ -200,6 +222,14 @@ class PipelineController(QObject):
             self.status_changed.emit("Listening")
 
             while not self._stop_event.is_set():
+                dead = [s for s in self._streams if not s.listener.is_running]
+                if dead:
+                    names = ", ".join(s.name for s in dead)
+                    self.error_occurred.emit(
+                        f"Audio capture stopped unexpectedly ({names}). "
+                        "Check your microphone or playback device."
+                    )
+                    break
                 if not any(t.is_alive() for t in self._stream_threads):
                     break
                 self._stop_event.wait(timeout=0.25)
@@ -298,9 +328,20 @@ class PipelineController(QObject):
         candidates: list[dict],
         filtered: list[dict],
     ) -> None:
+        passed_sources = {match["source"] for match in filtered}
+        context_rows = [
+            {
+                "source": str(match["source"]),
+                "score": float(match["score"]),
+                "text": str(match.get("text", ""))[:240],
+                "used": match["source"] in passed_sources,
+            }
+            for match in candidates
+        ]
+        self.suggestion_retrieval.emit(segment_index, context_rows)
+
         if not self._show_retrieval_debug:
             return
-        passed_sources = {match["source"] for match in filtered}
         rows = [
             (float(match["score"]), str(match["source"]), match["source"] in passed_sources)
             for match in candidates

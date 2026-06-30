@@ -14,6 +14,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from app.ui.branding import APP_NAME
+from app.ui.icon_loader import app_icon
 from app.utils.config import settings
 from app.utils.setup import (
     download_silero_vad,
@@ -75,7 +77,8 @@ class SetupWizard(QDialog):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Meeting Responder — Setup")
+        self.setWindowTitle(f"{APP_NAME} — Setup")
+        self.setWindowIcon(app_icon())
         self.setModal(True)
         self.setMinimumWidth(520)
 
@@ -114,7 +117,7 @@ class SetupWizard(QDialog):
         intro_layout = QVBoxLayout(intro)
         intro_layout.addWidget(
             QLabel(
-                "Welcome. This one-time setup prepares speech detection, "
+                f"Welcome to {APP_NAME}. This one-time setup prepares speech detection, "
                 "your Groq API connection, and knowledge-base components."
             )
         )
@@ -183,7 +186,7 @@ class SetupWizard(QDialog):
 
         done = QWidget()
         done_layout = QVBoxLayout(done)
-        done_layout.addWidget(QLabel("Setup complete. You're ready to use Meeting Responder."))
+        done_layout.addWidget(QLabel(f"Setup complete. You're ready to use {APP_NAME}."))
         done_layout.addStretch()
         self._add_page("done", done)
 
